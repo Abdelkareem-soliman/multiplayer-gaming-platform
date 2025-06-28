@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Game Data Monitor</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .monitor-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            padding: 20px;
+        }
+        .data-section {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .data-section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        pre {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .refresh-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .refresh-button:hover {
+            background: #45a049;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .stats-table th, .stats-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .stats-table th {
+            background-color: #f2f2f2;
+        }
+        .stats-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .last-updated {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #666;
+            font-size: 0.8em;
+        }
+        .winner {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .stats-table td {
+            vertical-align: middle;
+        }
+        
+        .stats-table tr:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game Data Monitor</h1>
+    <button class="refresh-button" onclick="refreshData()">🔄 Refresh Data</button>
+    
+    <div class="monitor-container">
+        <div class="data-section">
+            <h2>Active Matches (Redis)</h2>
+            <div id="activeMatches">Loading...</div>
+        </div>
+        
+        <div class="data-section">
+            <h2>Recent Matches (PostgreSQL)</h2>
+            <div id="recentMatches">Loading...</div>
+        </div>
+        
+        <div class="data-section">
+            <h2>Player Stats (PostgreSQL)</h2>
+            <table class="stats-table" id="playerStats">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
+                        <th>Total</th>
+                        <th>Win %</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="data-section">
+            <h2>Leaderboard (Redis)</h2>
+            <table class="stats-table" id="leaderboard">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- MongoDB Sections -->
+        <div class="data-section">
+            <h2>Recent Matches (MongoDB)</h2>
+            <div id="mongoRecentMatches">Loading...</div>
+        </div>
+        <div class="data-section">
+            <h2>Player Stats (MongoDB)</h2>
+            <table class="stats-table" id="mongoPlayerStats">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="last-updated" id="lastUpdated"></div>
+
+    <script>
+        function formatJSON(data) {
+            return JSON.stringify(data, null, 2);
+        }
+
+        function formatActiveMatches(matches) {
+            if (Object.keys(matches).length === 0) return 'No active matches';
+            
+            let html = '<table class="stats-table">';
+            html += '<tr><th>Match ID</th><th>Player 1</th><th>Player 2</th><th>P1 HP</th><th>P2 HP</th></tr>';
+            
+            for (const [key, data] of Object.entries(matches)) {
+                html += `<tr>
+                    <td>${key}</td>
+                    <td>${data.p1_id}</td>
+                    <td>${data.p2_id}</td>
+                    <td>${data.p1_hp}</td>
+                    <td>${data.p2_hp}</td>
+                </tr>`;
+            }
+            html += '</table>';
+            return html;
+        }
+
+        function formatRecentMatches(matches) {
+            if (matches.length === 0) return 'No recent matches';
+            
+            let html = '<table class="stats-table">';
+            html += '<tr><th>Match ID</th><th>Players</th><th>Winner</th><th>Stats</th></tr>';
+            
+            matches.forEach(match => {
+                const winnerClass = match.winner === match.player_1 ? 'winner' : '';
+                html += `<tr>
+                    <td>${match.match_id}</td>
+                    <td>
+                        <span class="${match.winner === match.player_1 ? 'winner' : ''}">${match.player_1}</span> 
+                        vs 
+                        <span class="${match.winner === match.player_2 ? 'winner' : ''}">${match.player_2}</span>
+                    </td>
+                    <td class="winner">${match.winner}</td>
+                    <td>
+                        P1: ${match.player_1_stats.wins}W/${match.player_1_stats.losses}L<br>
+                        P2: ${match.player_2_stats.wins}W/${match.player_2_stats.losses}L
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+            return html;
+        }
+
+        function updatePlayerStats(stats) {
+            const tbody = document.querySelector('#playerStats tbody');
+            tbody.innerHTML = '';
+            
+            stats.forEach(stat => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stat.player_id}</td>
+                    <td>${stat.wins}</td>
+                    <td>${stat.losses}</td>
+                    <td>${stat.total_matches}</td>
+                    <td>${stat.win_percentage}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const tbody = document.querySelector('#leaderboard tbody');
+            tbody.innerHTML = '';
+            
+            if (!leaderboard || leaderboard.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No leaderboard data available</td></tr>';
+                return;
+            }
+
+            leaderboard.forEach((entry, index) => {
+                const [player, score] = entry;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${player.replace('player:', '')}</td>
+                    <td>${score}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function formatMongoRecentMatches(matches) {
+            if (!matches || matches.length === 0) return 'No recent matches';
+            let html = '<table class="stats-table">';
+            html += '<tr><th>Match ID</th><th>Player 1</th><th>Player 2</th><th>Winner</th></tr>';
+            matches.forEach(match => {
+                html += `<tr>
+                    <td>${match.match_id}</td>
+                    <td>${match.player_1}</td>
+                    <td>${match.player_2}</td>
+                    <td>${match.winner}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            return html;
+        }
+
+        function updateMongoPlayerStats(stats) {
+            const tbody = document.querySelector('#mongoPlayerStats tbody');
+            tbody.innerHTML = '';
+            if (!stats || stats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No player stats</td></tr>';
+                return;
+            }
+            stats.forEach(stat => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stat.player_id}</td>
+                    <td>${stat.wins || 0}</td>
+                    <td>${stat.losses || 0}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function refreshData() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/monitor');
+                const data = await response.json();
+                
+                document.getElementById('activeMatches').innerHTML = formatActiveMatches(data.active_matches);
+                document.getElementById('recentMatches').innerHTML = formatRecentMatches(data.recent_matches);
+                updatePlayerStats(data.player_stats);
+                updateLeaderboard(data.leaderboard);
+                document.getElementById('mongoRecentMatches').innerHTML = formatMongoRecentMatches(data.mongo_recent_matches);
+                updateMongoPlayerStats(data.mongo_player_stats);
+                
+                document.getElementById('lastUpdated').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('activeMatches').innerHTML = 'Error loading data';
+                document.getElementById('recentMatches').innerHTML = 'Error loading data';
+                document.querySelector('#playerStats tbody').innerHTML = '<tr><td colspan="5">Error loading data</td></tr>';
+                document.querySelector('#leaderboard tbody').innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+                document.getElementById('mongoRecentMatches').innerHTML = 'Error loading data';
+                document.querySelector('#mongoPlayerStats tbody').innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+            }
+        }
+
+        // Initial load
+        refreshData();
+
+        // Auto-refresh every 5 seconds
+        setInterval(refreshData, 5000);
+    </script>
+</body>
+</html> 

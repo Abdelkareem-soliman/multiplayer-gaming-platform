@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Match Arena</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .player-section {
+      margin-bottom: 20px;
+    }
+
+    .hp-bar-container {
+      width: 200px;
+      height: 20px;
+      background-color: #ddd;
+      border-radius: 10px;
+      margin-top: 5px;
+    }
+
+    .hp-bar {
+      height: 100%;
+      background-color: green;
+      border-radius: 10px;
+      width: 100%;
+      transition: width 0.4s ease-in-out;
+    }
+
+    .action-buttons {
+      margin-top: 20px;
+    }
+
+    .winner-alert {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Match Arena</h1>
+
+  <p><strong>Match ID:</strong> <span id="matchIdDisplay"></span></p>
+
+  <!-- Player 1 -->
+  <div class="player-section">
+    <h2 id="p1Name">Player 1</h2>
+    <p>HP: <span id="p1Hp">100</span></p>
+    <div class="hp-bar-container">
+      <div id="p1Bar" class="hp-bar"></div>
+    </div>
+    <button onclick="attack('p2')">Attack Player 2</button>
+  </div>
+
+  <!-- Player 2 -->
+  <div class="player-section">
+    <h2 id="p2Name">Player 2</h2>
+    <p>HP: <span id="p2Hp">100</span></p>
+    <div class="hp-bar-container">
+      <div id="p2Bar" class="hp-bar"></div>
+    </div>
+    <button onclick="attack('p1')">Attack Player 1</button>
+  </div>
+
+  <div class="action-buttons">
+    <button onclick="endMatch()">End Match</button>
+
+  </div>
+
+  <p id="actionStatus" class="winner-alert"></p>
+  <p id="resultMsg"></p>
+
+  <script src="script.js"></script>
+</body>
+</html>

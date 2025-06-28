@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Leaderboard</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .nav-buttons {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .nav-buttons button {
+      padding: 10px 20px;
+      margin: 0 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Leaderboard</h1>
+
+  <table id="leaderboardTable" border="1" cellpadding="10">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Player</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody id="leaderboardBody">
+      <!-- Dynamic rows -->
+    </tbody>
+  </table>
+
+  <!-- Navigation Buttons -->
+  <div class="nav-buttons">
+    <button onclick="restartSameMatch()">🔁 Restart Same Match</button>
+    <button onclick="startNewMatch()">🔄 New Match (New Players)</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
